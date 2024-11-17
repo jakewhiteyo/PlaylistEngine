@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               Int        @id @default(autoincrement()) @map("user_id")
+  email           String     @unique
+  googleId        String?    @unique @map("google_id")
+  firstName       String?    @map("first_name")
+  lastName        String?    @map("last_name")
+  profilePictureUrl String?  @map("profile_picture_url")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @default(now()) @map("updated_at")
+  curator         Curator[]
+  submissions     Submission[]
+
+  @@map("users")
+}
+
+model Curator {
+  id                Int                 @id @default(autoincrement())
+  userId            Int                 @map("user_id")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @default(now()) @map("updated_at")
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spotifySync       CuratorSpotifySync?
+  playlists         Playlist[]
+  curatorPlaylists  CuratorPlaylist[]
+
+  @@map("curator")
+}
+
+model CuratorSpotifySync {
+  id                Int      @id @default(autoincrement())
+  curatorId         Int      @unique @map("curator_id")
+  spotifyUserId     String   @map("spotify_user_id")
+  refreshToken      String   @map("refresh_token")
+  accessToken       String?  @map("access_token")
+  lastSyncTimestamp DateTime? @map("last_sync_timestamp")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @map("updated_at")
+  curator           Curator  @relation(fields: [curatorId], references: [id], onDelete: Cascade)
+
+  @@map("curator_spotify_sync")
+}
+
+model Playlist {
+  id                Int               @id @default(autoincrement())
+  curatorId         Int              @map("curator_id")
+  name              String
+  numFollowers      Int              @default(0) @map("num_followers")
+  description       String?
+  isDeleted         Boolean          @default(false) @map("is_deleted")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @default(now()) @map("updated_at")
+  curator           Curator          @relation(fields: [curatorId], references: [id], onDelete: Cascade)
+  curatorPlaylists  CuratorPlaylist[]
+  playlistHistory   PlaylistHistory[]
+  playlistSongs     PlaylistSong[]
+  submissions       Submission[]
+
+  @@map("playlist")
+}
+
+model CuratorPlaylist {
+  id                Int      @id @default(autoincrement())
+  playlistId        Int      @map("playlist_id")
+  curatorId         Int      @map("curator_id")
+  acceptsSubmissions Boolean  @default(true) @map("accepts_submissions")
+  numSongsAdded     Int      @default(0) @map("num_songs_added")
+  numSongsRejected  Int      @default(0) @map("num_songs_rejected")
+  submissionPrice   Decimal  @default(0) @map("submission_price") @db.Decimal(10, 2)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @map("updated_at")
+  playlist          Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  curator           Curator  @relation(fields: [curatorId], references: [id], onDelete: Cascade)
+
+  @@map("curator_playlist")
+}
+
+model PlaylistHistory {
+  id                  Int      @id @default(autoincrement())
+  playlistId          Int      @map("playlist_id")
+  followers           Int
+  dateFollowersChanged DateTime @map("date_followers_changed")
+  createdAt           DateTime @default(now()) @map("created_at")
+  playlist            Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+
+  @@map("playlist_history")
+}
+
+model PlaylistSong {
+  id                      Int                  @id @default(autoincrement())
+  playlistId              Int                  @map("playlist_id")
+  spotifySongId           String               @map("spotify_song_id")
+  dateAddedToPlaylist     DateTime?            @map("date_added_to_playlist")
+  dateRemovedFromPlaylist DateTime?            @map("date_removed_from_playlist")
+  createdAt               DateTime             @default(now()) @map("created_at")
+  updatedAt               DateTime             @default(now()) @map("updated_at")
+  playlist                Playlist             @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  playlistSongHistory     PlaylistSongHistory[]
+
+  @@map("playlist_song")
+}
+
+model PlaylistSongHistory {
+  id                  Int         @id @default(autoincrement())
+  playlistSongId      Int         @map("playlist_song_id")
+  positionNumber      Int         @map("position_number")
+  dateStartedPosition DateTime    @map("date_started_position")
+  dateLeftPosition    DateTime?   @map("date_left_position")
+  createdAt           DateTime    @default(now()) @map("created_at")
+  playlistSong        PlaylistSong @relation(fields: [playlistSongId], references: [id], onDelete: Cascade)
+
+  @@map("playlist_song_history")
+}
+
+model Submission {
+  id              Int               @id @default(autoincrement())
+  playlistId      Int              @map("playlist_id")
+  submittingUserId Int             @map("submitting_user_id")
+  spotifySongId   String           @map("spotify_song_id")
+  message         String?
+  isDeleted       Boolean          @default(false) @map("is_deleted")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @default(now()) @map("updated_at")
+  playlist        Playlist         @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  submittingUser  User            @relation(fields: [submittingUserId], references: [id], onDelete: Cascade)
+  status          SubmissionStatus?
+
+  @@map("submissions")
+}
+
+model SubmissionStatus {
+  id              Int        @id @default(autoincrement())
+  submissionId    Int        @unique @map("submission_id")
+  status          String     @default("pending")
+  reviewDate      DateTime?  @map("review_date")
+  curatorComments String?    @map("curator_comments")
+  updatedDate     DateTime   @default(now()) @map("updated_date")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  submission      Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("submission_status")
+}
