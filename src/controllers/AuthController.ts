@@ -7,25 +7,26 @@ export class AuthController {
   // Temporary method to create/update a user (will be replaced with Google SSO later)
   async createOrUpdateUser(req: Request, res: Response) {
     try {
-      const { email, firstName, lastName, googleId } = req.body;
+      const { email, firstName, lastName, googleId, curatorId } = req.body;
       console.log(`Creating user ${email}`);
-
+      
       const user = await prisma.user.upsert({
-        where: { 
-          email: email,
-        },
-        update: {
-          firstName,
-          lastName,
-          googleId,
-        },
-        create: {
-          email,
-          firstName,
-          lastName,
-          googleId,
-        },
-      });
+          where: { 
+            id: curatorId,
+           },
+          update: {
+            email,
+            firstName,
+            lastName,
+            googleId,
+          },
+          create: {
+            email,
+            firstName,
+            lastName,
+            googleId,
+          },
+        });
 
       return res.status(200).json(user);
     } catch (error) {
