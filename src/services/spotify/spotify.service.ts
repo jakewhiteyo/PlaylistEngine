@@ -1,45 +1,52 @@
 import axios from 'axios';
 import qs from 'qs';
 import dotenv from 'dotenv';
+import {
+    TokenResponse,
+    ErrorResponse,
+    ArtistResponse,
+    PlaylistResponse,
+    TrackResponse,
+    PlaylistTrackResponse,
+    CreatePlaylistResponse,
+    AddTracksResponse
+} from './spotify.types';
 
 dotenv.config();
 
-interface TokenResponse {
-    access_token: string;
-    [key: string]: any;
-}
-
-interface ErrorResponse {
-    error: string;
-    details?: any;
-}
-
-export class SpotifyAPI {
+export class SpotifyService {
+    private static instance: SpotifyService;
     private client_id: string;
     private client_secret: string;
     private refresh_token: string;
     private user_id: string;
     private access_token: string;
 
-    constructor(
-        client_id: string,
-        client_secret: string,
-        refresh_token: string,
-        user_id: string
-    ) {
-        this.client_id = client_id;
-        this.client_secret = client_secret;
-        this.refresh_token = refresh_token;
-        this.user_id = user_id;
+    private constructor() {
+        this.client_id = process.env.SPOTIFY_CLIENT_ID || '';
+        this.client_secret = process.env.SPOTIFY_CLIENT_SECRET || '';
+        this.refresh_token = process.env.SPOTIFY_REFRESH_TOKEN || '';
+        this.user_id = process.env.SPOTIFY_USER_ID || '';
         this.access_token = '';
     }
 
-    async refreshAccessToken(): Promise<TokenResponse | ErrorResponse> {
+    public static getInstance(): SpotifyService {
+        if (!SpotifyService.instance) {
+            SpotifyService.instance = new SpotifyService();
+        }
+        return SpotifyService.instance;
+    }
+
+    public async initialize(): Promise<void> {
+        await this.refreshAccessToken();
+    }
+
+    private async refreshAccessToken(): Promise<TokenResponse | ErrorResponse> {
         try {
             const url = "https://accounts.spotify.com/api/token";
             const auth = Buffer.from(`${this.client_id}:${this.client_secret}`).toString('base64');
             
-            const response = await axios.post(url, 
+            const response = await axios.post<TokenResponse>(url, 
                 qs.stringify({
                     grant_type: 'refresh_token',
                     refresh_token: this.refresh_token
@@ -57,13 +64,16 @@ export class SpotifyAPI {
         }
     }
 
-    async getArtists(query: string, limit: number = 10) {
+    private async ensureValidToken(): Promise<void> {
         if (!this.access_token) {
-            return { error: 'Access token undefined' };
+            await this.refreshAccessToken();
         }
+    }
 
+    public async searchArtists(query: string, limit: number = 10): Promise<ArtistResponse | ErrorResponse> {
+        await this.ensureValidToken();
         try {
-            const response = await axios.get('https://api.spotify.com/v1/search', {
+            const response = await axios.get<ArtistResponse>('https://api.spotify.com/v1/search', {
                 headers: { 'Authorization': `Bearer ${this.access_token}` },
                 params: {
                     q: encodeURIComponent(query),
@@ -77,13 +87,10 @@ export class SpotifyAPI {
         }
     }
 
-    async getPlaylists(query: string, limit: number = 3) {
-        if (!this.access_token) {
-            return { error: 'Access token undefined' };
-        }
-
+    public async searchPlaylists(query: string, limit: number = 3): Promise<PlaylistResponse | ErrorResponse> {
+        await this.ensureValidToken();
         try {
-            const response = await axios.get('https://api.spotify.com/v1/search', {
+            const response = await axios.get<PlaylistResponse>('https://api.spotify.com/v1/search', {
                 headers: { 'Authorization': `Bearer ${this.access_token}` },
                 params: { q: query, type: 'playlist', limit }
             });
@@ -93,41 +100,10 @@ export class SpotifyAPI {
         }
     }
 
-    async getArtistId(artist_name: string): Promise<string> {
-        const response = await axios.get('https://api.spotify.com/v1/search', {
-            headers: { 'Authorization': `Bearer ${this.access_token}` },
-            params: { q: artist_name, type: 'artist', limit: 1 }
-        });
-        return response.data.artists.items[0].id;
-    }
-
-    async getArtistSongs(artist_id: string): Promise<string[]> {
-        const headers = { 'Authorization': `Bearer ${this.access_token}` };
-        const albums = await axios.get(`https://api.spotify.com/v1/artists/${artist_id}/albums`, {
-            headers,
-            params: { include_groups: 'album,single', limit: 50 }
-        });
-
-        const tracks: string[] = [];
-        
-        for (const album of albums.data.items) {
-            const tracksResponse = await axios.get(
-                `https://api.spotify.com/v1/albums/${album.id}/tracks`,
-                { headers }
-            );
-            tracks.push(...tracksResponse.data.items.map((track: any) => track.name));
-        }
-
-        return tracks;
-    }
-
-    async getSong(query: string, limit: number = 1) {
-        if (!this.access_token) {
-            return { error: 'Access token undefined' };
-        }
-
+    public async searchTracks(query: string, limit: number = 1): Promise<TrackResponse | ErrorResponse> {
+        await this.ensureValidToken();
         try {
-            const response = await axios.get('https://api.spotify.com/v1/search', {
+            const response = await axios.get<TrackResponse>('https://api.spotify.com/v1/search', {
                 headers: { 'Authorization': `Bearer ${this.access_token}` },
                 params: { q: query, type: 'track', limit }
             });
@@ -137,10 +113,11 @@ export class SpotifyAPI {
         }
     }
 
-    async getPlaylistTracks(playlist_id: string, limit: number = 50, offset: number = 0) {
+    public async getPlaylistTracks(playlistId: string, limit: number = 50, offset: number = 0): Promise<PlaylistTrackResponse | ErrorResponse> {
+        await this.ensureValidToken();
         try {
-            const response = await axios.get(
-                `https://api.spotify.com/v1/playlists/${playlist_id}/tracks`,
+            const response = await axios.get<PlaylistTrackResponse>(
+                `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
                 {
                     headers: { 'Authorization': `Bearer ${this.access_token}` },
                     params: { limit, offset }
@@ -152,14 +129,14 @@ export class SpotifyAPI {
         }
     }
 
-    async createPlaylist(playlist_name: string, playlist_description: string) {
-        console.log(`creating playlist ${playlist_name}`);
+    public async createPlaylist(name: string, description: string): Promise<CreatePlaylistResponse | ErrorResponse> {
+        await this.ensureValidToken();
         try {
-            const response = await axios.post(
+            const response = await axios.post<CreatePlaylistResponse>(
                 `https://api.spotify.com/v1/users/${this.user_id}/playlists`,
                 {
-                    name: playlist_name,
-                    description: playlist_description,
+                    name,
+                    description,
                     public: true
                 },
                 {
@@ -175,11 +152,12 @@ export class SpotifyAPI {
         }
     }
 
-    async addPlaylistTracks(playlist_id: string, uris: string[]) {
+    public async addTracksToPlaylist(playlistId: string, trackUris: string[]): Promise<AddTracksResponse | ErrorResponse> {
+        await this.ensureValidToken();
         try {
-            const response = await axios.post(
-                `https://api.spotify.com/v1/playlists/${playlist_id}/tracks`,
-                { uris },
+            const response = await axios.post<AddTracksResponse>(
+                `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
+                { uris: trackUris },
                 {
                     headers: {
                         'Authorization': `Bearer ${this.access_token}`,
@@ -193,3 +171,5 @@ export class SpotifyAPI {
         }
     }
 }
+
+export default SpotifyService.getInstance();
