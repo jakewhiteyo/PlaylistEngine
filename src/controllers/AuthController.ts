@@ -8,6 +8,7 @@ export class AuthController {
   async createOrUpdateUser(req: Request, res: Response) {
     try {
       const { email, firstName, lastName, googleId } = req.body;
+      console.log(`Creating user ${email}`);
 
       const user = await prisma.user.upsert({
         where: { 
@@ -37,6 +38,9 @@ export class AuthController {
   async getUserByEmail(req: Request, res: Response) {
     try {
       const { email } = req.params;
+      
+      console.log(`Fetching user with email: ${email}`);
+
       const user = await prisma.user.findUnique({
         where: { email },
       });
