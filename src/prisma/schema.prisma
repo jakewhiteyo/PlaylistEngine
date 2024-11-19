@@ -24,6 +24,7 @@ model User {
 
 model Curator {
   id                Int                 @id @default(autoincrement())
+  userName          String              @unique
   userId            Int                 @map("user_id")
   createdAt         DateTime            @default(now()) @map("created_at")
   updatedAt         DateTime            @default(now()) @map("updated_at")
@@ -50,8 +51,9 @@ model CuratorSpotifySync {
 }
 
 model Playlist {
-  id                Int               @id @default(autoincrement())
+  id                Int              @id @default(autoincrement())
   curatorId         Int              @map("curator_id")
+  spotifyPlaylistId String?          @unique @map("spotify_playlist_id")
   name              String
   numFollowers      Int              @default(0) @map("num_followers")
   description       String?
