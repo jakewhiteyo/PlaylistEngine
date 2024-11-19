@@ -12,7 +12,7 @@ export class AuthController {
 
       const user = await prisma.user.upsert({
         where: {
-          id: curatorId,
+          id: curatorId ?? 0,
         },
         update: {
           email,
