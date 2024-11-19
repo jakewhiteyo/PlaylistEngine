@@ -46,4 +46,28 @@ export class CuratorController {
       return res.status(500).json({ error: "Failed to create/update curator" });
     }
   }
+
+  async getCurator(req: Request, res: Response) {
+    try {
+      const curatorId = Number(req.params.id);
+
+      const curator = await prisma.curator.findUnique({
+        where: {
+          id: curatorId,
+        },
+        include: {
+          spotifySync: true,
+        },
+      });
+
+      if (!curator) {
+        return res.status(404).json({ error: "Curator not found" });
+      }
+
+      return res.status(200).json({ curator });
+    } catch (error) {
+      console.error("Error fetching curator:", error);
+      return res.status(500).json({ error: "Failed to fetch curator" });
+    }
+  }
 }
