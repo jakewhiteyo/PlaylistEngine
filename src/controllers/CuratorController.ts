@@ -16,7 +16,7 @@ export class CuratorController {
 
       const curator = await prisma.curator.upsert({
         where: {
-          id: Number(curatorId) ?? 0,
+          id: curatorId ?? 0,
         },
         update: {
           userId: Number(userId),
