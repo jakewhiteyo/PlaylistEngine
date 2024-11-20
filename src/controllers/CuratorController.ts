@@ -89,6 +89,7 @@ export class CuratorController {
         spotifyPlaylistId,
         acceptsSubmissions,
         submissionPrice,
+        followers,
       } = req.body;
 
       // Create or update the playlist
@@ -127,6 +128,30 @@ export class CuratorController {
           submissionPrice,
         },
       });
+
+      // Check playlist history for this playlist.
+      const latestPlaylistHistory = await prisma.playlistHistory.findFirst({
+        where: {
+          playlistId: playlist.id,
+        },
+        orderBy: {
+          dateFollowersChanged: "desc",
+        },
+      });
+
+      // If followers dont match or history object doesn't exist, create it.
+      if (
+        !latestPlaylistHistory ||
+        latestPlaylistHistory.followers !== followers
+      ) {
+        await prisma.playlistHistory.create({
+          data: {
+            playlistId: playlist.id,
+            followers,
+            dateFollowersChanged: new Date(),
+          },
+        });
+      }
 
       return res.status(200).json({
         playlist,
