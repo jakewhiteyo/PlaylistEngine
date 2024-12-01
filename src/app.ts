@@ -7,6 +7,12 @@ dotenv.config();
 
 const app = express();
 
+// Logging middleware - add this before other middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
 // Enable CORS for all routes
 app.use(
   cors({
