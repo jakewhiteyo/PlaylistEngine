@@ -55,7 +55,7 @@ export class CuratorController {
     }
   }
 
-  async getCurator(req: Request, res: Response) {
+  async getCuratorById(req: Request, res: Response) {
     try {
       const curatorId = Number(req.params.id);
 
@@ -75,6 +75,34 @@ export class CuratorController {
       return res.status(200).json({ curator });
     } catch (error) {
       console.error("Error fetching curator:", error);
+      return res.status(500).json({ error: "Failed to fetch curator" });
+    }
+  }
+
+  async getCuratorByUserName(req: Request, res: Response) {
+    try {
+      const userName = req.params.userName;
+
+      const curator = await prisma.curator.findFirst({
+        where: {
+          userName: {
+            equals: userName,
+            mode: "insensitive",
+          },
+        },
+        include: {
+          spotifySync: true,
+          user: true,
+        },
+      });
+
+      if (!curator) {
+        return res.status(404).json({ error: "Curator not found" });
+      }
+
+      return res.status(200).json({ curator });
+    } catch (error) {
+      console.error("Error fetching curator by username:", error);
       return res.status(500).json({ error: "Failed to fetch curator" });
     }
   }

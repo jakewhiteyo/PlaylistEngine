@@ -5,7 +5,8 @@ const router = Router();
 const curatorController = new CuratorController();
 
 router.post("/curator", curatorController.createUpdateCurator);
-router.get("/:id", curatorController.getCurator);
+router.get("/id/:id", curatorController.getCuratorById);
+router.get("/username/:userName", curatorController.getCuratorByUserName);
 router.post("/playlist", curatorController.saveCuratorPlaylist);
 router.get("/playlist/:id", curatorController.getCuratorPlaylists);
 
